@@ -1,5 +1,6 @@
 import {
   index,
+  integer,
   jsonb,
   pgEnum,
   pgTable,
@@ -9,8 +10,10 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 import { entityStatuses, entityTypes } from "@/domain/entities";
+import { users } from "./auth";
 
 export const entityTypeEnum = pgEnum("entity_type", entityTypes);
 export const entityStatusEnum = pgEnum("entity_status", entityStatuses);
@@ -75,3 +78,35 @@ export const entityRelationships = pgTable(
   ],
 );
 
+
+export const reviewStatusEnum = pgEnum("review_status", [
+  "published",
+  "pending",
+  "hidden",
+]);
+
+export const reviews = pgTable(
+  "reviews",
+  {
+    id: uuid("review_id").defaultRandom().primaryKey(),
+    entityId: uuid("entity_id")
+      .notNull()
+      .references(() => entities.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    reviewerName: varchar("reviewer_name", { length: 80 }).notNull(),
+    rating: integer("rating").notNull(),
+    title: varchar("title", { length: 160 }).notNull(),
+    body: text("body").notNull(),
+    firstHandExperience: integer("first_hand_experience").default(1).notNull(),
+    publicDisplayMode: varchar("public_display_mode", { length: 20 }).default("profile_name").notNull(),
+    experienceDate: timestamp("experience_date", { withTimezone: true }),
+    status: reviewStatusEnum("status").default("published").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("reviews_entity_created_idx").on(table.entityId, table.createdAt),
+    index("reviews_status_idx").on(table.status),
+    sql`constraint reviews_rating_check check (${table.rating} between 1 and 5)`,
+    sql`constraint reviews_display_mode_check check (${table.publicDisplayMode} in ('profile_name', 'anonymous'))`,
+  ],
+);

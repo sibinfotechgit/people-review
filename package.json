@@ -9,7 +9,9 @@
     "dev": "npm run dev --workspace=@public-review/web",
     "build": "npm run build --workspace=@public-review/web",
     "start": "npm run start --workspace=@public-review/web",
-    "typecheck": "npm run typecheck --workspace=@public-review/web"
+    "typecheck": "npm run typecheck --workspace=@public-review/web",
+    "db:migrate": "npm run db:migrate --workspace=@public-review/web",
+    "db:seed": "npm run db:seed --workspace=@public-review/web"
   },
   "engines": {
     "node": ">=20.9"

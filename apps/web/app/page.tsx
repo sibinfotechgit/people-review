@@ -1,100 +1,23 @@
-const entityTypes = [
-  "Brands",
-  "Businesses",
-  "Locations",
-  "Products",
-  "Menu items",
-  "Services",
-];
+import { eq, ilike, or } from "drizzle-orm";
+import Link from "next/link";
+import AccountNav from "@/app/ui/account-nav";
+import { getDatabase } from "@/db/database";
+import { entities, reviews } from "@/db/schema";
 
-const principles = [
-  ["Exact targets", "Every review belongs to the exact entity being reviewed."],
-  ["Transparent ratings", "Direct ratings remain separate from related aggregates."],
-  ["Evidence-backed data", "Published facts retain their source and rights status."],
-];
+export const dynamic = "force-dynamic";
+const typeLabels: Record<string,string> = { brand:"Brand", business:"Business", business_location:"Location", product:"Product", product_variant:"Product", menu_item:"Menu item", service:"Service", service_offering:"Service" };
+type HomePageProps = { searchParams: Promise<{ q?: string }> };
 
-export default function HomePage() {
-  return (
-    <main>
-      <header className="site-header">
-        <a className="brand" href="#top" aria-label="Public Review home">
-          <span className="brand-mark" aria-hidden="true">★</span>
-          <span>Public Review</span>
-        </a>
-        <nav aria-label="Main navigation">
-          <a href="#discover">Explore</a>
-          <a href="#trust">How it works</a>
-          <a href="#businesses">For businesses</a>
-        </nav>
-        <button className="button button-secondary" type="button">Sign in</button>
-      </header>
-
-      <section className="hero" id="top">
-        <div className="hero-copy">
-          <p className="eyebrow">Mumbai pilot · Foundation preview</p>
-          <h1>Real people. Honest opinions. <span>Better decisions.</span></h1>
-          <p className="hero-description">
-            Discover and review the exact brand, branch, product, menu item, or service that matters to you.
-          </p>
-          <form className="search" role="search">
-            <label className="sr-only" htmlFor="search-query">Search Public Review</label>
-            <input id="search-query" name="query" placeholder="Search for a brand, business, product, or service" />
-            <button className="button button-primary" type="submit">Search</button>
-          </form>
-          <p className="prototype-note">Search is a UI placeholder in this initial framework.</p>
-        </div>
-        <aside className="hero-card" aria-label="Project status">
-          <span className="status">Framework started</span>
-          <h2>Trust-first by design</h2>
-          <p>The foundation keeps entity identity, evidence, and rating scope explicit from day one.</p>
-          <dl>
-            <div><dt>Initial market</dt><dd>Mumbai</dd></div>
-            <div><dt>Review scale</dt><dd>1–5</dd></div>
-            <div><dt>Current phase</dt><dd>Platform audit</dd></div>
-          </dl>
-        </aside>
-      </section>
-
-      <section className="section" id="discover">
-        <div className="section-heading">
-          <p className="eyebrow">One discovery experience</p>
-          <h2>Explore by entity</h2>
-          <p>Results will preserve the context users need to understand exactly what they are viewing.</p>
-        </div>
-        <div className="entity-grid">
-          {entityTypes.map((entity) => <article className="entity-card" key={entity}>{entity}</article>)}
-        </div>
-      </section>
-
-      <section className="section trust-section" id="trust">
-        <div className="section-heading">
-          <p className="eyebrow">Why Public Review</p>
-          <h2>A clearer review model</h2>
-        </div>
-        <div className="principle-grid">
-          {principles.map(([title, copy]) => (
-            <article className="principle" key={title}>
-              <span aria-hidden="true">✓</span>
-              <h3>{title}</h3>
-              <p>{copy}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="section business-section" id="businesses">
-        <div>
-          <p className="eyebrow">For businesses</p>
-          <h2>Correct facts and respond—without buying reputation.</h2>
-        </div>
-        <p>Claim workflows and scoped permissions will be implemented after the product and verification policies are approved.</p>
-      </section>
-
-      <footer>
-        <span>Public Review</span>
-        <span>Product framework · Not a production release</span>
-      </footer>
-    </main>
-  );
+export default async function HomePage({ searchParams }: HomePageProps) {
+  const { q = "" } = await searchParams; const query=q.trim(); const database=getDatabase();
+  const rows=await database.select({entity:entities,review:reviews}).from(entities).leftJoin(reviews,eq(entities.id,reviews.entityId)).where(query?or(ilike(entities.canonicalName,`%${query}%`),ilike(entities.description,`%${query}%`)):eq(entities.status,"published"));
+  const entityMap=new Map<string,{entity:typeof entities.$inferSelect;ratings:number[]}>();
+  for(const row of rows){const item=entityMap.get(row.entity.id)??{entity:row.entity,ratings:[]};if(row.review?.status==="published")item.ratings.push(row.review.rating);entityMap.set(row.entity.id,item);} const results=[...entityMap.values()];
+  return <main>
+    <header className="site-header"><Link className="brand" href="/"><span className="brand-mark">P</span><span>Public Review</span></Link><nav><Link href="#discover">Discover</Link><Link href="#how-it-works">How it works</Link></nav><AccountNav /></header>
+    <section className="hero"><div className="hero-copy"><p className="eyebrow">A clearer place for public opinion</p><h1>Review the exact thing that <span>matters.</span></h1><p className="hero-description">Find a business, product, place, or service. Read real experiences and share your own.</p><form className="search" role="search" action="/" method="get"><label className="sr-only" htmlFor="search-query">Search Public Review</label><span className="search-icon">⌕</span><input id="search-query" name="q" defaultValue={query} placeholder="Try ‘café’, ‘phone’, or ‘delivery’"/><button className="button button-primary">Search</button></form><p className="search-hint">Browse the sample listings below or search by name and category.</p></div><aside className="hero-card"><div className="score-orbit"><strong>4.8</strong><span>★★★★★</span></div><h2>Useful reviews, less noise.</h2><p>Ratings stay attached to the exact entity reviewed, so a branch, product, and parent brand are never confused.</p><div className="trust-row"><span>✓</span> First-hand experiences</div><div className="trust-row"><span>✓</span> Clear rating scope</div><div className="trust-row"><span>✓</span> No paid reputation</div></aside></section>
+    <section className="section" id="discover"><div className="section-heading heading-row"><div><p className="eyebrow">Discover</p><h2>{query?`Results for “${query}”`:"Worth talking about"}</h2></div><p>{results.length} {results.length===1?"listing":"listings"}</p></div>{results.length?<div className="listing-grid">{results.map(({entity,ratings})=>{const average=ratings.length?(ratings.reduce((sum,value)=>sum+value,0)/ratings.length).toFixed(1):"New";const metadata=entity.metadata as {location?:string};return <Link className="listing-card" href={`/entities/${entity.slug}`} key={entity.id}><div className={`entity-avatar avatar-${entity.type}`}>{entity.canonicalName.slice(0,1)}</div><div className="listing-body"><span className="entity-type">{typeLabels[entity.type]}</span><h3>{entity.canonicalName}</h3><p>{entity.description}</p><div className="listing-meta"><span className="rating"><strong>{average}</strong> <span>★</span></span><span>{ratings.length} reviews</span>{metadata.location&&<span>{metadata.location}</span>}</div></div><span className="card-arrow">→</span></Link>})}</div>:<div className="empty-state"><div>⌕</div><h3>No exact match yet</h3><p>Try a broader search, or return to all listings.</p><Link className="button button-primary" href="/">View all</Link></div>}</section>
+    <section className="section how-section" id="how-it-works"><div className="section-heading"><p className="eyebrow">Simple by design</p><h2>Three steps to a better decision</h2></div><div className="steps-grid"><article><span>01</span><h3>Find the exact entity</h3><p>Choose the specific brand, branch, product, or service.</p></article><article><span>02</span><h3>Read real experiences</h3><p>See the score and the context behind each opinion.</p></article><article><span>03</span><h3>Add your perspective</h3><p>Share a first-hand experience in a few clear steps.</p></article></div></section>
+    <footer><span className="brand footer-brand"><span className="brand-mark">P</span> Public Review</span><span>Honest opinions. Better decisions.</span></footer>
+  </main>;
 }
-

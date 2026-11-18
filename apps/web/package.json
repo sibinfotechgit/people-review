@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node --env-file=../../.env db/migrate.mjs",
+    "db:seed": "node --env-file=../../.env db/seed.mjs",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio"
   },
